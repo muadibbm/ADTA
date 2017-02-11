@@ -10,13 +10,13 @@ public class Main {
 	private static Scanner sc;
 	
 	private static List <Employee> employees;
-	private static List <Employee> projects;
+	private static List <Project> projects;
 	
 	public static void main(String[] args) {
 		sc = new Scanner (System.in);
 		employees = new ArrayList <Employee>();
 		ReadEmployees();
-		projects = new ArrayList <Employee>();
+		projects = new ArrayList <Project>();
 		ReadProjects();
 	}
 	
@@ -54,9 +54,19 @@ public class Main {
 		try {
 		    FileReader fr = new FileReader(sc.nextLine());
 		    BufferedReader br = new BufferedReader(fr);
-		    String line;
-		    while((line = br.readLine()) != null) {
-		    	// TODO : read projects to array
+		    Project p;
+		    String tuple;
+		    int index;
+		    while((tuple = br.readLine()) != null) {
+		    	p = new Project();
+		    	index = 0;
+		    	p.empId.value = Integer.parseInt(tuple.substring(index, p.empId.length));
+		    	index = p.empId.length;
+		    	p.projectId.value = Integer.parseInt(tuple.substring(index, index + p.projectId.length));
+		    	index += p.projectId.length;
+		    	p.projectDescription.value = tuple.substring(index, tuple.length());
+		    	System.out.println(p.toString());
+		    	projects.add(p);
 		    }
 		    br.close();
 		} catch(Exception e) {
