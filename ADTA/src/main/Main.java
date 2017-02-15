@@ -17,7 +17,6 @@ public class Main {
 	
 	private static int PK_SIZE = 7;
 	private static int NumTotalTuples;
-	private static String lostTuple = "";
 	
 	public static void main(String[] args) {
 		System.out.println("Main Memory : " + Runtime.getRuntime().maxMemory() / 1000000 + " MB");
