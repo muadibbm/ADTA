@@ -14,24 +14,27 @@ import java.util.List;
 public class Main {
 	
 	private static int PK_SIZE = 7;
+	private static float blockSize = 4096;
+	private static float employeeTupleSize = 100;
+	private static float projectTupleSize = 60;
+	private static int NumTotalBlocks;
 	private static int NumTotalTuples;
 	private static int numOfIOs;
-	private static long sortTime;
 	
 	public static void main(String[] args) {
 		System.out.println("Main Memory : " + Runtime.getRuntime().maxMemory() / 1000000 + " MB");
 		System.out.println("===================");
-		
 		try {
 			Scanner sc = new Scanner(System.in);
 			System.out.print("Enter Employees filename:");
 			String employeesFile = sc.nextLine();
-			SortAndMerge(employeesFile);
+			SortAndMerge(employeesFile, employeeTupleSize);
 			System.gc();
 			System.out.print("Enter Projects filename:");
 			String projectsFile = sc.nextLine();
-			SortAndMerge(projectsFile);
+			SortAndMerge(projectsFile, projectTupleSize);
 			System.gc();
+			System.out.println("Sum Total number of blocks from employee and project relations is " + NumTotalBlocks);
 			Join(employeesFile, projectsFile);
 			sc.close();
 		}catch(IOException e) {
@@ -40,26 +43,23 @@ public class Main {
 		}
 	}
 	
-	private static String SortAndMerge(String filename) throws IOException {
+	private static String SortAndMerge(String filename, float tupleSize) throws IOException {
 		System.out.println("Reading file " + filename + " into sorted sublists ...");
-		sortTime = 0;
 		long _startTime = System.nanoTime() ;
-		int numOfEmployeesSublists = DivideIntoSortedSublists(filename);
-		System.out.println ( "Sorting operations took " + sortTime + " seconds");
-		System.out.println ( "Pass 1 : Number of disk I/O is " + numOfIOs);
-		System.out.println ( "Pass 1 : Total operations took " + (float)( System.nanoTime() - _startTime ) / 1000000000 + " seconds to complete" ) ;
+		int numOfEmployeesSublists = DivideIntoSortedSublists(filename, tupleSize);
+		System.out.println ( "Sort : Number of disk I/O is " + numOfIOs);
+		System.out.println ( "Sort : Operations took " + (float)( System.nanoTime() - _startTime ) / 1000000000 + " seconds to complete" ) ;
 		System.out.println(numOfEmployeesSublists + " sublists created");
 		System.out.println("Merging sorted sublists for " + filename + " ...");
-		sortTime = 0;
 		_startTime = System.nanoTime() ;
 		MergeSublistsIntoSortedRelation(filename, numOfEmployeesSublists);
-		System.out.println ( "Sorting operations took " + sortTime + " seconds");
-		System.out.println ( "Pass 2 : Number of disk I/O is " + numOfIOs);
-		System.out.println ( "Pass 2 : Total operations took " + (float)( System.nanoTime() - _startTime ) / 1000000000 + " seconds to complete" ) ;
+		System.out.println ( "Merge : Number of disk I/O is " + numOfIOs);
+		System.out.println ( "Merge : Operations took " + (float)( System.nanoTime() - _startTime ) / 1000000000 + " seconds to complete" ) ;
 		return filename;
 	}
 	
 	private static void Join(String relationFile1, String relationFile2) throws IOException {
+		long _startTime = System.nanoTime() ;
 		System.out.println("Joining relations in files " + relationFile1 + " and " + relationFile2);
 		FileReader fileReader1 = new FileReader("output" + "_" + relationFile1);
 		FileReader fileReader2 = new FileReader("output" + "_" + relationFile2);
@@ -90,11 +90,13 @@ public class Main {
 		buffer2.close();
 		fileReader1.close();
 		fileReader2.close();
-		System.out.println ( "Join operation : Number of disk I/O is " + numOfIOs);
+		_startTime = System.nanoTime();
+		System.out.println ( "Join : Operation took " + (float)( System.nanoTime() - _startTime ) / 1000000000 + " seconds to complete" ) ;
+		System.out.println ( "Join : Number of disk I/O is " + numOfIOs);
 		System.out.println("Total number of joined relation tuples is " + numOfTuples);
 	}
 	
-	private static int DivideIntoSortedSublists(String filename) throws IOException
+	private static int DivideIntoSortedSublists(String filename, float tupleSize) throws IOException
 	{
 		NumTotalTuples = 0;
 		int numSublists = 0;
@@ -102,7 +104,7 @@ public class Main {
 	    BufferedReader buffer = new BufferedReader(fileReader);
 	    String lastTuple;
 		while(true) {
-			lastTuple = ReadAndWriteSortedBlock(buffer, filename, numSublists);
+			lastTuple = ReadAndWriteSortedBlock(buffer, filename, numSublists, tupleSize);
 		    numSublists++;
 		    if(lastTuple == null)
 		    	break;
@@ -113,7 +115,9 @@ public class Main {
 	}
 	
 	private static String ReadAndWriteSortedBlock (BufferedReader buffer, 
-												 String filename, int blockIndex) throws IOException {
+												 String filename, int blockIndex, 
+												 float tupleSize) throws IOException {
+		int numTuples = 0;
 		String tuple = "";
 		List<Integer> pks = new ArrayList<Integer>();
 		HashMap<Integer, String> pkTupleMap = new HashMap<Integer, String>();
@@ -130,9 +134,7 @@ public class Main {
 			}
 		} catch(OutOfMemoryError e) {
 		} finally {
-			long _startTime = System.nanoTime() ;
 			Collections.sort(pks);
-			sortTime += (float)( System.nanoTime() - _startTime ) / 1000000000;
 			for(int i = 0; i < blockToWrite.size(); i++) {
 				blockToWrite.set(i, pkTupleMap.get(pks.get(i)));
 			}
@@ -145,6 +147,7 @@ public class Main {
 				writer.write(line);
 				writer.newLine();
 				NumTotalTuples++;
+				numTuples++;
 				numOfIOs++;
 			}
 			// add the lost tuple
@@ -156,6 +159,7 @@ public class Main {
 			}
 			writer.close();
 			fileWriter.close();
+			NumTotalBlocks += ( numTuples * tupleSize ) / blockSize;
 		}
 		return tuple;
 	}
@@ -188,9 +192,7 @@ public class Main {
 						tuples[i] = tuple;
 					}
 				}
-				long _startTime = System.nanoTime() ;
 				minIndex = ExtractMinIndex(pks);
-				sortTime += (float)( System.nanoTime() - _startTime ) / 1000000000;
 				if(pks[minIndex] != 0) {
 					blockToWrite.add(tuples[minIndex]);
 					pks[minIndex] = 0;
